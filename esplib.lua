@@ -33,9 +33,6 @@ local defaults = {
 	distancePosition = "Bottom",
 	distanceSize     = 11,
 	maxDistance      = 2500,
-	skeleton         = false,
-	skeletonColor    = Color3.fromRGB(255, 255, 255),
-	skeletonThickness = 1,
 }
 
 local item_defaults = {
@@ -64,15 +61,6 @@ local mfloor = math.floor
 local mmax   = math.max
 local WHITE  = Color3.new(1, 1, 1)
 local camera = Workspace.CurrentCamera
-
-local BONES = {
-	{"Head", "UpperTorso"},
-	{"UpperTorso", "LowerTorso"},
-	{"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-	{"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-	{"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-	{"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-}
 
 local function rgbseq(...) return ColorSequence.new{...} end
 local function rgbkey(t, c) return ColorSequenceKeypoint.new(t, c) end
@@ -384,26 +372,12 @@ local function buildEntry(character, ownerPlayer)
 		if not character.Parent then esp:remove(character) end
 	end)
 
-	D.skeletonLines = {}
-	for i = 1, #BONES do
-		local ln = Drawing.new("Line")
-		ln.Visible = false
-		ln.Thickness = options.skeletonThickness
-		ln.Color = options.skeletonColor
-		ln.Transparency = 1
-		D.skeletonLines[i] = ln
-	end
-
 	D.destroy = function()
 		for _, c in D._conns do pcall(function() c:Disconnect() end) end
 		D._conns = {}
 		for _, key in {"Left","Right","Top","Bottom","Corners","ImageBox","Box","Text","Distance","Holder"} do
 			local item = E[key]
 			if item and typeof(item) == "Instance" then pcall(function() item:Destroy() end) end
-		end
-		if D.skeletonLines then
-			for _, ln in D.skeletonLines do pcall(function() ln:Remove() end) end
-			D.skeletonLines = nil
 		end
 	end
 
@@ -677,39 +651,6 @@ local function getCharacterBoundingBox(chr)
     return CFrame.new(center), size
 end
 
-local function hideSkeleton(D)
-	local lines = D.skeletonLines
-	if not lines then return end
-	for i = 1, #lines do lines[i].Visible = false end
-end
-
-local function drawSkeleton(D)
-	local lines = D.skeletonLines
-	if not lines then return end
-	local chr = D.character
-	for i = 1, #BONES do
-		local bone = BONES[i]
-		local p0 = chr:FindFirstChild(bone[1])
-		local p1 = chr:FindFirstChild(bone[2])
-		local ln = lines[i]
-		if p0 and p1 then
-			local a, onA = camera:WorldToViewportPoint(p0.Position)
-			local b, onB = camera:WorldToViewportPoint(p1.Position)
-			if a.Z > 0 and b.Z > 0 and (onA or onB) then
-				ln.From      = Vector2.new(a.X, a.Y)
-				ln.To        = Vector2.new(b.X, b.Y)
-				ln.Color     = options.skeletonColor
-				ln.Thickness = options.skeletonThickness
-				ln.Visible   = true
-			else
-				ln.Visible = false
-			end
-		else
-			ln.Visible = false
-		end
-	end
-end
-
 local function update()
 	if not options.enabled then return end
 
@@ -732,7 +673,6 @@ local function update()
 		local health = hum and hum.Health or 1
 		if not chr.Parent or health <= 0 or not rt.Parent then
 			if E.Holder.Visible then E.Holder.Visible = false end
-			hideSkeleton(D)
 			continue
 		end
 
@@ -764,13 +704,10 @@ local function update()
 
 		if not anyOnScreen then
 			if E.Holder.Visible then E.Holder.Visible = false end
-			hideSkeleton(D)
 			continue
 		end
 
 		if not E.Holder.Visible then E.Holder.Visible = true end
-
-		if options.skeleton then drawSkeleton(D) else hideSkeleton(D) end
 
 		local bpX    = mfloor(minX)
 		local bpY    = mfloor(minY)
@@ -973,6 +910,7 @@ function item_esp:get(key, typeName)
 	end
 	return item_defaults[key]
 end
+
 
 initGui()
 loop      = RunService:BindToRenderStep("ESPLoop",     0, update)
