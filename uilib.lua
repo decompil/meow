@@ -2264,6 +2264,173 @@ do --// UI Source
                 return setmetatable(KeybindList, Library)
             end
 
+            Library.Graph = function(Self, Params)
+                Params = Params or { }
+
+                local Graph = {
+                    Name    = Params.Name or Params.name or "graph",
+                    Max     = Params.Max or Params.max or 100,
+                    Bars    = Params.Bars or Params.bars or 90,
+                    Width   = Params.Width or Params.width or 180,
+                    Height  = Params.Height or Params.height or 70,
+                    Color   = Params.Color or Params.color or Library.Theme["Accent"],
+                    Samples = { },
+                    BarObjs = { },
+                    Items   = { },
+                }
+
+                local Items = { } do
+                    Items["Graph"] = Library:Create("Frame", {
+                        Name = "\0",
+                        Parent = Library.Holder.Instance,
+                        AnchorPoint = Vector2.new(0, 0.5),
+                        Position = UDim2.new(0, 20, 0.7, 0),
+                        Size = UDim2.new(0, Graph.Width, 0, Graph.Height + 6),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 = Library.Theme["Background"]
+                    }):AddToTheme({BackgroundColor3 = 'Background'})
+
+                    Items["Graph"]:MakeDraggable()
+
+                    Library:Create("UIStroke", {
+                        Name = "\0",
+                        Parent = Items["Graph"].Instance,
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                        LineJoinMode = Enum.LineJoinMode.Miter,
+                        Color = Library.Theme["Outline 1"]
+                    }):AddToTheme({Color = 'Outline 1'})
+
+                    Library:Create("UIStroke", {
+                        Name = "\0",
+                        Parent = Items["Graph"].Instance,
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                        LineJoinMode = Enum.LineJoinMode.Miter,
+                        Color = Library.Theme["Outline 3"],
+                        BorderOffset = UDim.new(0, 1)
+                    }):AddToTheme({Color = 'Outline 3'})
+
+                    Items["Title"] = Library:Create("Frame", {
+                        Name = "\0",
+                        Parent = Items["Graph"].Instance,
+                        AnchorPoint = Vector2.new(0, 1),
+                        BorderSizePixel = 0,
+                        Position = UDim2.new(0, -10, 0, 0),
+                        Size = UDim2.new(0, 0, 0, 21),
+                        ZIndex = -1,
+                        AutomaticSize = Enum.AutomaticSize.X,
+                        BackgroundColor3 = Library.Theme["Inline"]
+                    }):AddToTheme({BackgroundColor3 = 'Inline'})
+
+                    Library:Create("UIStroke", {
+                        Name = "\0",
+                        Parent = Items["Title"].Instance,
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                        LineJoinMode = Enum.LineJoinMode.Miter,
+                        Color = Library.Theme["Outline 1"]
+                    }):AddToTheme({Color = 'Outline 1'})
+
+                    Library:Create("UIPadding", {
+                        Name = "\0",
+                        Parent = Items["Title"].Instance,
+                        PaddingRight = UDim.new(0, 8),
+                        PaddingLeft = UDim.new(0, 8)
+                    })
+
+                    Items["Text"] = Library:Create("TextLabel", {
+                        Name = "\0",
+                        FontFace = Library.BoldFont,
+                        TextSize = Library.FontSize,
+                        Parent = Items["Title"].Instance,
+                        RichText = true,
+                        TextColor3 = Library.Theme["Text"],
+                        Text = Graph.Name,
+                        Size = UDim2.new(0, 0, 0, 15),
+                        AnchorPoint = Vector2.new(0, 0.5),
+                        BackgroundTransparency = 1,
+                        Position = UDim2.new(0, 0, 0.5, -2),
+                        AutomaticSize = Enum.AutomaticSize.X
+                    }):AddToTheme({TextColor3 = 'Text'})
+
+                    Items["Value"] = Library:Create("TextLabel", {
+                        Name = "\0",
+                        FontFace = Library.Font,
+                        TextSize = Library.FontSize,
+                        Parent = Items["Graph"].Instance,
+                        TextColor3 = Library.Theme["Text"],
+                        Text = "",
+                        Size = UDim2.new(1, -8, 0, 12),
+                        BackgroundTransparency = 1,
+                        Position = UDim2.new(0, 6, 0, 4),
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        ZIndex = 5
+                    }):AddToTheme({TextColor3 = 'Text'})
+
+                    Items["Plot"] = Library:Create("Frame", {
+                        Name = "\0",
+                        Parent = Items["Graph"].Instance,
+                        AnchorPoint = Vector2.new(0.5, 1),
+                        Position = UDim2.new(0.5, 0, 1, -4),
+                        Size = UDim2.new(1, -8, 1, -10),
+                        BackgroundTransparency = 1,
+                        ClipsDescendants = true,
+                        BorderSizePixel = 0
+                    })
+
+                    local scale = 1 / Graph.Bars
+                    for i = 1, Graph.Bars do
+                        local bar = Library:Create("Frame", {
+                            Name = "\0",
+                            Parent = Items["Plot"].Instance,
+                            AnchorPoint = Vector2.new(0, 1),
+                            Position = UDim2.new((i - 1) * scale, 0, 1, 0),
+                            Size = UDim2.new(scale, 0, 0, 0),
+                            BorderSizePixel = 0,
+                            BackgroundColor3 = Graph.Color
+                        })
+                        Graph.BarObjs[i] = bar
+                    end
+
+                    Graph.Items = Items
+                end
+
+                function Graph:Push(value)
+                    local S = Graph.Samples
+                    S[#S + 1] = value
+                    while #S > Graph.Bars do table.remove(S, 1) end
+                    local n = #S
+
+                    local peak = Graph.Max
+                    for _, s in ipairs(S) do if s > peak then peak = s end end
+
+                    for i = 1, Graph.Bars do
+                        local s = S[n - Graph.Bars + i]
+                        local bar = Graph.BarObjs[i]
+                        if s then
+                            local h = math.clamp(s / peak, 0, 1)
+                            bar.Instance.Size = UDim2.new(1 / Graph.Bars, 0, h, 0)
+                        else
+                            bar.Instance.Size = UDim2.new(1 / Graph.Bars, 0, 0, 0)
+                        end
+                    end
+                    Items["Value"].Instance.Text = string.format("%s: %d", Graph.Name, math.floor(value + 0.5))
+                end
+
+                function Graph:SetColor(color)
+                    Graph.Color = color
+                    for _, bar in Graph.BarObjs do bar.Instance.BackgroundColor3 = color end
+                end
+
+                function Graph:SetMax(m) Graph.Max = m end
+
+                function Graph:SetVisibility(Bool)
+                    Items["Graph"].Instance.Visible = Bool
+                end
+
+                Graph:SetVisibility(false)
+
+                return setmetatable(Graph, Library)
+            end
+
             Library.StaffList = function(Self, Params)
                 Params = Params or { }
 
